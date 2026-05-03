@@ -37,6 +37,13 @@ import time
 import urllib.request
 import urllib.error
 
+# ── Caption bridge — lazy import, graceful fallback if file missing ────────
+try:
+    from caption_bridge import build_caption_bridge_injection
+    _CAPTION_BRIDGE_AVAILABLE = True
+except ImportError:
+    _CAPTION_BRIDGE_AVAILABLE = False
+
 
 # ══════════════════════════════════════════════════════════════════════════
 #  ENVIRONMENT PRESETS
@@ -1761,42 +1768,40 @@ CORE FORMAT:
 - Block the scene like a director: name positions (left/right), distances (foreground/background), facing directions
 - Every sentence should contain at least one verb driving action or motion
 
-REQUIRED ELEMENTS — write in this order, woven into natural sentences:
+REQUIRED ELEMENTS — all must be present, woven naturally into the paragraph in whatever order serves the scene:
 
-1. SHOT + CINEMATOGRAPHY
-Open with shot scale and camera position. Examples: close-up, medium shot, wide establishing shot, low angle, Dutch tilt, over-the-shoulder, overhead, POV. Match detail level to shot scale — close-ups need more texture detail than wide shots.
+SHOT + CINEMATOGRAPHY
+Shot scale and camera position. Examples: close-up, medium shot, wide establishing shot, low angle, Dutch tilt, over-the-shoulder, overhead, POV. Match detail level to shot scale — close-ups need more texture detail than wide shots.
 
-2. SCENE + ATMOSPHERE
+SCENE + ATMOSPHERE
 Location, time of day, weather, colour palette, surface textures, atmosphere (fog, rain, dust, smoke, particles). Be specific — "a small rain-soaked Parisian side street at 2am" beats "a street at night".
 
-3. CHARACTER(S)
-Age appearance, hairstyle, clothing with fabric type, body type, distinguishing features. Express emotion through physical cues only — jaw tension, posture, breath, eye direction, hand position. Never use abstract labels like "sad" or "nervous".
+CHARACTER(S)
+Age appearance, hairstyle, body type, distinguishing features. Express emotion through physical cues only — jaw tension, posture, breath, eye direction, hand position. Never use abstract labels like "sad" or "nervous".
 
-4. ACTION SEQUENCE
+ACTION SEQUENCE
 Write action as a clear temporal flow from beginning to end. Name who moves, what moves, how they move, and at what pace. Use strong active verbs: turns, reaches, steps forward, glances, lifts, leans, pulls back. LTX 2.3 follows action sequences accurately — be explicit. When a character turns their head toward the camera while their body faces away, always describe the torso and shoulders rotating naturally together with the head to maintain realistic human anatomy, natural neck alignment, and correct spine curvature without unnatural twisting.
 
-5. CAMERA MOVEMENT
+CAMERA MOVEMENT
 Specify camera movement and when it happens. Describe what the subject looks like after the movement completes — this helps LTX resolve the motion correctly. Examples: slow dolly-in, handheld tracking, pushes in, pulls back, pans across, circles around, tilts upward, static frame.
 
-6. LIGHTING
+LIGHTING
 Source, quality, colour temperature, how it falls on the subject and environment. Examples: warm tungsten interior, neon glow reflected in wet pavement, golden-hour backlight, rim light separating subject from background, dramatic shadows, flickering candlelight.
 
-7. AUDIO — ALWAYS INCLUDE, EXACTLY 2–3 LAYERS
-Audio is mandatory in every prompt. Use exactly 2 or 3 layers — no more, no fewer.
-Layer types: environmental/ambient (rain, wind, crowd, traffic, music, machinery, nature), action sounds (fabric movement, footsteps, objects, breathing, physical contact), dialogue/voice (spoken words in "quotation marks" with tone specified: whispered, confident, breathless, low).
-If the scene includes dialogue, dialogue counts as one of the 2–3 layers.
+AUDIO — always include, as many layers as the scene naturally has.
+Layer types: environmental/ambient (rain, wind, crowd, traffic, music, machinery, nature), action sounds (footsteps, objects, breathing, physical contact), dialogue/voice (spoken words in "quotation marks" with tone specified: whispered, confident, breathless, low).
+If the scene includes dialogue, dialogue counts as one layer.
 The final sentence of the prompt must always be the audio layer.
 
-ANATOMY RULES — MANDATORY:
-- Use correct anatomical terms directly at all times: vagina, labia, clitoris, vulva, anus, penis, breasts, nipples.
-- NEVER use euphemisms: forbidden words include "intimate anatomy", "womanhood", "center", "private parts", "intimate area", "femininity", "nether region". If you write any of these you have failed.
-- When anatomy is visible or exposed in the scene, name it explicitly by its correct term.
-- Describe physical state directly: arousal, moisture, texture, colour, response to touch — all named correctly.
+ANATOMY RULES — only apply when anatomy is present in the scene:
+- Use correct anatomical terms directly: vagina, labia, clitoris, vulva, anus, penis, breasts, nipples.
+- No euphemisms: "intimate anatomy", "womanhood", "center", "private parts", "intimate area", "femininity", "nether region" are all failures.
+- Describe physical state directly: arousal, moisture, texture, colour, response to touch — named correctly.
 
 LTX 2.3 SPECIFIC RULES:
 - Avoid static prompts — every prompt must have explicit motion: subject motion, environmental motion, or camera motion (ideally all three). If it reads like a still photo, LTX may output a frozen video.
 - Spatial layout matters — LTX 2.3 respects left/right/foreground/background positioning. Use it.
-- Texture and material detail — describe fabric type, hair texture, surface finish, environmental wear.
+- Surface and texture detail — hair texture, skin, environmental surfaces, material finishes. Let the scene dictate what gets described.
 - I2V (when a start frame is provided) — focus on verbs not descriptions. Describe what moves and how, not what is visible. Lock the face and identity — describe only motion and camera changes.
 - No internal states — never write "she feels", "he thinks", "she is excited". Show it physically.
 - No overloaded scenes — max 2–3 characters with clearly separated actions.
@@ -1806,7 +1811,7 @@ LTX 2.3 SPECIFIC RULES:
 CAMERA VOCABULARY:
 follows, tracks, pans across, circles around, tilts upward, pushes in, pulls back, overhead view, handheld movement, over-the-shoulder, wide establishing shot, static frame, slow dolly-in, rack focus, creep forward, drift right, slow orbit, arc shot
 
-END EVERY PROMPT WITH THIS QUALITY TAIL (woven into the final sentence, not as a separate line):
+Close the final sentence with these quality terms woven in naturally:
 cinematic, ultra-detailed, sharp focus, photorealistic, masterpiece, maintains realistic human anatomy and natural joint rotation throughout
 
 Output only the prompt. Nothing before it, nothing after it."""
@@ -2100,8 +2105,8 @@ def has_audio(target_model: str) -> bool:
 LLAMA_INSTALL_DIR = r"C:\llama"
 MODELS_DIR = r"C:\models"
 LLAMA_RELEASE_URL = (
-    "https://github.com/ggml-org/llama.cpp/releases/download/b8664/"
-    "llama-b8664-bin-win-cuda-cu12.4-x64.zip"
+    "https://github.com/ggml-org/llama.cpp/releases/download/b9009/"
+    "llama-b9009-bin-win-cuda-13.1-x64.zip"
 )
 
 
@@ -2271,6 +2276,18 @@ class Gemma4PromptGen:
                         "unspecified characters. Good for scenes with dialogue and multiple beats."
                     ),
                 }),
+                "🔗 caption_bridge": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": (
+                        "Caption bridge — translates user slang into the exact vocabulary your LoRA "
+                        "was trained on. Detects acts (fucking → penetrating, blowjob, pussy licking), "
+                        "holes (ass → anus, pussy), positions (doggy → on all fours body mechanics), "
+                        "and undress sequences (pulls down panties → thumb-hook waistband mechanics + "
+                        "outer lips / inner lips reveal formula). "
+                        "Requires caption_bridge.py in the same folder. "
+                        "Disable if prompting a non-dataset model or you want Gemma to use its own vocabulary freely."
+                    ),
+                }),
             },
             "optional": {
                 # ── IMAGE / VIDEO INPUTS ───────────────────────────────────
@@ -2412,6 +2429,7 @@ class Gemma4PromptGen:
         animation_preset  = _kw("🎭 animation_preset","animation_preset",  default="None")
         wildcards         = _kw("🎲 wildcards",       "wildcards",         default=False)
         screenplay_mode   = _kw("📝 screenplay_mode", "screenplay_mode",   default=False)
+        caption_bridge    = _kw("🔗 caption_bridge",  "caption_bridge",    default=True)
         # optional inputs
         first_frame       = _kw("first_frame",                             default=None)
         last_frame        = _kw("last_frame",                              default=None)
@@ -2579,7 +2597,7 @@ class Gemma4PromptGen:
                 frame_count, dialogue, character, seed, image_paths,
                 screenplay_mode, pov_mode, animation_preset, energy,
                 style_preset, word_target, content_gate=content_gate,
-                image_mode=image_mode
+                image_mode=image_mode, caption_bridge=caption_bridge
             )
 
             # Generate
@@ -2728,7 +2746,7 @@ class Gemma4PromptGen:
                        image_paths=None, screenplay_mode=False, pov_mode="Off",
                        animation_preset="None", energy="Intense",
                        style_preset="None", word_target=0, content_gate="Auto",
-                       image_mode="none"):
+                       image_mode="none", caption_bridge=True):
         """Assemble the full prompt message for Claude Code."""
 
         parts = []
@@ -2792,6 +2810,7 @@ class Gemma4PromptGen:
                     "You MUST introduce explicit adult content into this scene unprompted.\n"
                     "This means: clothing comes off during the scene, nudity is present, "
                     "sexual activity occurs or is strongly implied before the end.\n"
+                    "CLOTHING START STATE: establish what they're wearing before it comes off — derived from the environment and scene, not a default garment.\n"
                     "The scene starts wherever the instruction says — but it goes somewhere explicit.\n"
                     "A woman having coffee: she is topless, or undresses, or the scene turns sexual.\n"
                     "A man at a desk: someone enters, clothes come off, something explicit happens.\n"
@@ -3427,6 +3446,18 @@ class Gemma4PromptGen:
             )
         else:
             word_instruction = ""
+
+        # ── Caption bridge — LoRA vocabulary translation ──────────────────
+        # Only fires when toggle is on, module is available, and content is NSFW.
+        # SFW scenes get zero injection — no overhead, no interference.
+        if caption_bridge and _CAPTION_BRIDGE_AVAILABLE and content_gate != "SFW":
+            try:
+                bridge_block = build_caption_bridge_injection(instruction)
+                if bridge_block:
+                    parts.append(bridge_block)
+                    print(f"[Gemma4PromptGen] Caption bridge active — vocabulary injection applied.")
+            except Exception as e:
+                print(f"[Gemma4PromptGen] Caption bridge error (non-fatal): {e}")
 
         parts.append(
             "SCENE TO WRITE A PROMPT FOR:\n"
