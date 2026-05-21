@@ -37,12 +37,52 @@ import time
 import urllib.request
 import urllib.error
 
-# ── Caption bridge — lazy import, graceful fallback if file missing ────────
-try:
-    from caption_bridge import build_caption_bridge_injection
-    _CAPTION_BRIDGE_AVAILABLE = True
-except ImportError:
-    _CAPTION_BRIDGE_AVAILABLE = False
+# ══════════════════════════════════════════════════════════════════════════
+#  LORA PRESETS
+#  Activated via toggle — injects a fixed shot structure into the instruction.
+# ══════════════════════════════════════════════════════════════════════════
+LORA_PRESETS = {
+    "None": None,
+    "💦 Blink — Titjob": {
+        "trigger": "JMPCT",
+        "base_caption": (
+            "JMPCT, woman posing and smiling at camera, "
+            "sudden jumpcut to a woman lying down performing a titjob, "
+            "looking up at the camera with an expressive face."
+        ),
+        "system_prompt_override": (
+            "You enhance a base caption for LTX Video 2.3. "
+            "Output ONE short paragraph only — no preamble, no explanation, nothing before or after.\n\n"
+            "RULES — non-negotiable:\n"
+            "1. START your output with exactly: JMPCT,\n"
+            "2. Keep the structure: posing shot then sudden jumpcut then titjob shot\n"
+            "3. Add ONE short detail about the subject appearance from the image if provided\n"
+            "4. Add ONE dialogue line in quotes in the posing shot — sexy and contextual to who she is\n"
+            "5. Add ONE dialogue line in quotes in the titjob shot — breathless and in the moment\n"
+            "6. End with a single brief audio sentence\n"
+            "7. TOTAL OUTPUT: 4 to 6 sentences MAX. Short. Dense. No flowery prose.\n"
+            "8. Do NOT add extra scenes, camera moves, or beats beyond the base caption structure.\n\n"
+            "BASE CAPTION TO ENHANCE:\n"
+            "JMPCT, woman posing and smiling at camera, sudden jumpcut to a woman lying down "
+            "performing a titjob, looking up at the camera with an expressive face.\n\n"
+            "Output only the enhanced prompt. Begin with JMPCT,"
+        ),
+        "dialogue_open_pool": [
+            "Hey... come closer...",
+            "I've been waiting for you...",
+            "You like what you see...?",
+            "Don't be shy...",
+            "Come here...",
+        ],
+        "dialogue_close_pool": [
+            "yes... just like that... don't stop...",
+            "mmm... feels so good...",
+            "keep going... please...",
+            "you feel amazing...",
+            "don't you dare stop...",
+        ],
+    },
+}
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -2144,6 +2184,7 @@ class Gemma4PromptGen:
     _last_prompt = ""
     _last_neg     = ""
     _last_qc      = ""
+    _last_trigger = ""
     _llama_process = None
 
     @classmethod
@@ -2258,17 +2299,17 @@ class Gemma4PromptGen:
                     },
                 ),
                 # ── LESS USED ──────────────────────────────────────────────
-                "🎲 wildcards": ("BOOLEAN", {
-                    "default": False,
-                    "tooltip": (
-                        "Enable wildcard mode — detects the type of scene in your instruction and "
-                        "assembles a fully randomised scene in that universe (vehicles, sports, animation, "
-                        "fantasy, sci-fi, horror, historical, food, music, animals, nature, SFW person, or NSFW). "
-                        "Blank input = full chaos, any universe. "
-                        "Overrides whatever is typed in the instruction field. "
-                        "Use seed to lock a result."
-                    ),
-                }),
+                "🎞 lora_preset": (
+                    list(LORA_PRESETS.keys()),
+                    {
+                        "default": "None",
+                        "tooltip": (
+                            "LoRA preset — activates a fixed shot structure for a specific trained LoRA. "
+                            "None = standard freestyle generation. "
+                            "Blink Titjob = JMPCT jumpcut structure with auto dialogue injected around the subject."
+                        ),
+                    },
+                ),
                 "📝 screenplay_mode": ("BOOLEAN", {
                     "default": False,
                     "tooltip": (
@@ -2276,18 +2317,6 @@ class Gemma4PromptGen:
                         "screenplay-style prompt: Characters block, Scene block, then alternating "
                         "Action+Dialogue beats. Invents names, ages, and physical details for any "
                         "unspecified characters. Good for scenes with dialogue and multiple beats."
-                    ),
-                }),
-                "🔗 caption_bridge": ("BOOLEAN", {
-                    "default": True,
-                    "tooltip": (
-                        "Caption bridge — translates user slang into the exact vocabulary your LoRA "
-                        "was trained on. Detects acts (fucking → penetrating, blowjob, pussy licking), "
-                        "holes (ass → anus, pussy), positions (doggy → on all fours body mechanics), "
-                        "and undress sequences (pulls down panties → thumb-hook waistband mechanics + "
-                        "outer lips / inner lips reveal formula). "
-                        "Requires caption_bridge.py in the same folder. "
-                        "Disable if prompting a non-dataset model or you want Gemma to use its own vocabulary freely."
                     ),
                 }),
             },
@@ -2327,12 +2356,6 @@ class Gemma4PromptGen:
                         ),
                     },
                 ),
-                "📏 word_target": ("INT", {
-                    "default": 0, "min": 0, "max": 1000, "step": 25,
-                    "tooltip": "Target word count for the output prompt. 0 = auto (model decides). "
-                               "Set to e.g. 200, 300, 500 to enforce a specific length. "
-                               "Max tokens are scaled automatically to fit.",
-                }),
                 "🌡️ temperature": (
                     ["Focused (0.7)", "Default (1.0)", "Creative (1.2)", "Unhinged (1.4)"],
                     {
@@ -2342,24 +2365,25 @@ class Gemma4PromptGen:
                             "Focused (0.7): consistent, structured, less drift — good for booru tags and tight character descriptions.\n"
                             "Default (1.0): balanced — creative but coherent. Works for everything.\n"
                             "Creative (1.2): more unexpected word choices, richer variation, occasional weirdness.\n"
-                            "Unhinged (1.4): the model goes wherever it wants — surprising results, occasional garbage. Pairs well with auto_retry."
+                            "Unhinged (1.4): the model goes wherever it wants — surprising results, occasional garbage."
                         ),
                     },
                 ),
-                "🔁 auto_retry": ("BOOLEAN", {
-                    "default": False,
-                    "tooltip": (
-                        "Quality check + auto-retry. Runs fast string checks after generation: "
-                        "dialogue density (dialogue mode), CAPS presence (Extreme energy), "
-                        "minimum length vs frame count, preamble/leak contamination. "
-                        "Fires one retry on failure only — no delay on passing outputs. "
-                        "Retry uses boosted temperature for genuine variation. "
-                        "Better of the two results is kept."
-                    ),
-                }),
+                "🎲 seed_mode": (
+                    ["Random", "Increment", "Fixed"],
+                    {
+                        "default": "Random",
+                        "tooltip": (
+                            "Seed behaviour. "
+                            "Random: new seed every run. "
+                            "Increment: seed increases by 1 each run. "
+                            "Fixed: always uses the seed value below."
+                        ),
+                    },
+                ),
                 "🌱 seed": ("INT", {
                     "default": 0, "min": 0, "max": 2**31 - 1, "step": 1,
-                    "tooltip": "Seed for Random environment pick. 0 = different every run.",
+                    "tooltip": "Seed value. Used directly in Fixed mode, as starting point in Increment mode, ignored in Random mode.",
                 }),
                 # ── BACKEND CONFIG ─────────────────────────────────────────
                 "🖥️ llama_server_url": (
@@ -2379,8 +2403,8 @@ class Gemma4PromptGen:
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING",)
-    RETURN_NAMES = ("preview_prompt", "send_prompt", "neg_prompt", "qc_report",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING",)
+    RETURN_NAMES = ("preview_prompt", "send_prompt", "neg_prompt", "qc_report", "lora_trigger",)
     FUNCTION = "execute"
     CATEGORY = "LoRa-Daddy/Gemma4"
     OUTPUT_NODE = True
@@ -2409,20 +2433,52 @@ class Gemma4PromptGen:
         dialogue          = _kw("💬 dialogue",        "dialogue",          default="Off")
         style_preset      = _kw("🎨 style_preset",    "style_preset",      default="None")
         animation_preset  = _kw("🎭 animation_preset","animation_preset",  default="None")
-        wildcards         = _kw("🎲 wildcards",       "wildcards",         default=False)
+        lora_preset       = _kw("🎞 lora_preset",     "lora_preset",       default="None")
         screenplay_mode   = _kw("📝 screenplay_mode", "screenplay_mode",   default=False)
-        caption_bridge    = _kw("🔗 caption_bridge",  "caption_bridge",    default=True)
+        # removed: wildcards, caption_bridge, word_target, auto_retry
+        wildcards         = False
+        caption_bridge    = False
+        word_target       = 0
+        auto_retry        = False
         # optional inputs
         image             = _kw("image",                                    default=None)
         character         = _kw("👤 character",       "character",         default="")
         frame_count       = _kw("🎞️ frame_count",     "frame_count",       default=257)
         pov_mode          = _kw("🎯 pov_mode",        "pov_mode",          default="Off")
-        word_target       = _kw("📏 word_target",     "word_target",       default=0)
         temperature       = _kw("🌡️ temperature",     "temperature",       default="Default (1.0)")
-        auto_retry        = _kw("🔁 auto_retry",      "auto_retry",        default=False)
+        seed_mode         = _kw("🎲 seed_mode",        "seed_mode",         default="Random")
         seed              = _kw("🌱 seed",             "seed",              default=0)
         llama_server_url  = _kw("🖥️ llama_server_url","llama_server_url",  default="http://127.0.0.1:8080")
         gguf_model        = _kw("🧠 gguf_model",      "gguf_model",        default="")
+
+        # ── Seed resolution ──────────────────────────────────────────────
+        if seed_mode == "Random":
+            import random as _rand
+            seed = _rand.randint(0, 2**31 - 1)
+        elif seed_mode == "Increment":
+            seed = (seed + 1) % (2**31)
+        # Fixed: use seed as-is
+
+        # ── LoRA preset injection ─────────────────────────────────────────
+        _lora_trigger    = ""
+        _lora_sys_override = None
+        if lora_preset and lora_preset != "None":
+            preset_def = LORA_PRESETS.get(lora_preset)
+            if preset_def:
+                _lora_trigger      = preset_def["trigger"]
+                _lora_sys_override = preset_def.get("system_prompt_override")
+                # Instruction becomes the user's subject description (or blank = "woman")
+                # The base caption is baked into the system prompt override
+                subject = instruction.strip() or "woman"
+                instruction = (
+                    f"Subject from image: {subject}\n"
+                    f"Make the dialogue contextual to this subject's appearance and character."
+                    if subject != "woman" else
+                    "Enhance the base caption. Make dialogue natural and contextual to what you see in the image."
+                )
+                # Cap word_target to keep it tight
+                word_target = 80
+                print(f"[Gemma4PromptGen] LoRA preset '{lora_preset}' — trigger: {_lora_trigger}, system override active")
 
         if not llama_server_url or not llama_server_url.strip():
             llama_server_url = "http://127.0.0.1:8080"
@@ -2436,7 +2492,7 @@ class Gemma4PromptGen:
             # fallback — first gguf in C:\models
             found = [f for f in os.listdir(models_dir) if f.endswith(".gguf")] if os.path.isdir(models_dir) else []
             if not found:
-                return ("❌ No GGUF files found in C:\\models\\. Add a GGUF and restart ComfyUI.", "", "", "",)
+                return ("❌ No GGUF files found in C:\\models\\. Add a GGUF and restart ComfyUI.", "", "", "", "",)
             model_path = os.path.join(models_dir, found[0])
 
         # ── PREVIEW MODE ────────────────────────────────────────────────
@@ -2462,13 +2518,13 @@ class Gemma4PromptGen:
             # Auto-find or install llama-server
             llama_exe = self._find_or_install_llama()
             if llama_exe.startswith("❌"):
-                return (llama_exe, "", "", "",)
+                return (llama_exe, "", "", "", "",)
 
             # Boot llama-server
             boot_status = self._ensure_llama_running(llama_server_url, llama_exe, model_path)
             print(f"[Gemma4PromptGen] {boot_status}")
             if boot_status.startswith("❌"):
-                return (boot_status, "", "", "",)
+                return (boot_status, "", "", "", "",)
 
             # ── Image grounding — single pin, simple path ─────────────────
             image_paths = []
@@ -2516,8 +2572,8 @@ class Gemma4PromptGen:
             }
             _temperature_float = _temp_map.get(temperature, 1.0)
 
-            # Build message
-            system_prompt = get_system_prompt(target_model, screenplay_mode, animation_preset)
+            # Build message — use LoRA system prompt override if active
+            system_prompt = _lora_sys_override if _lora_sys_override else get_system_prompt(target_model, screenplay_mode, animation_preset)
             combined = self._build_message(
                 instruction, system_prompt, target_model, environment,
                 frame_count, dialogue, character, seed, image_paths,
@@ -2531,6 +2587,14 @@ class Gemma4PromptGen:
             prompt = self._call_llama(combined, system_prompt, llama_server_url, image_paths,
                                       frame_count, target_model, word_target,
                                       temperature_override=_temperature_float)
+
+            # ── Hard-staple LoRA trigger to front of output ───────────────
+            if _lora_trigger and not prompt.startswith("❌") and not prompt.startswith("⚠️"):
+                # Strip any stray trigger the model may have included, then prepend clean
+                p = prompt.strip()
+                if p.upper().startswith(_lora_trigger.upper()):
+                    p = p[len(_lora_trigger):].lstrip(" ,")
+                prompt = f"{_lora_trigger}, {p}"
 
             # Clean up temp images
             for p in image_paths:
@@ -2581,9 +2645,10 @@ class Gemma4PromptGen:
                     else:
                         print(f"[Gemma4PromptGen] Retry errored — keeping original")
 
-                Gemma4PromptGen._last_prompt = prompt
-                Gemma4PromptGen._last_neg    = neg_prompt
-                Gemma4PromptGen._last_qc     = qc_report
+                Gemma4PromptGen._last_prompt   = prompt
+                Gemma4PromptGen._last_neg      = neg_prompt
+                Gemma4PromptGen._last_qc       = qc_report
+                Gemma4PromptGen._last_trigger  = _lora_trigger
             else:
                 print(f"[Gemma4PromptGen] Generation error — QC skipped")
 
@@ -2626,16 +2691,16 @@ class Gemma4PromptGen:
                         pass
             threading.Thread(target=_delayed_interrupt, daemon=True).start()
 
-            return (prompt, "", neg_prompt, qc_report,)
+            return (prompt, "", neg_prompt, qc_report, _lora_trigger,)
 
         # ── SEND MODE ────────────────────────────────────────────────────
         else:
             if not Gemma4PromptGen._last_prompt:
-                return ("", "❌ No prompt stored yet. Run PREVIEW first.", "", "",)
+                return ("", "❌ No prompt stored yet. Run PREVIEW first.", "", "", "",)
 
             final_prompt = Gemma4PromptGen._last_prompt
             self._kill_llama_server()
-            return (final_prompt, final_prompt, Gemma4PromptGen._last_neg, Gemma4PromptGen._last_qc,)
+            return (final_prompt, final_prompt, Gemma4PromptGen._last_neg, Gemma4PromptGen._last_qc, Gemma4PromptGen._last_trigger,)
 
     # ── Image utility ─────────────────────────────────────────────────────
 
@@ -3384,9 +3449,35 @@ class Gemma4PromptGen:
             except Exception as e:
                 print(f"[Gemma4PromptGen] Caption bridge error (non-fatal): {e}")
 
+        # ── Verbatim asterisk injection ───────────────────────────────────
+        # Phrases wrapped in *asterisks* in the user instruction are extracted
+        # and injected as mandatory verbatim strings the LLM must place where
+        # they make sense — exactly as written, no paraphrasing allowed.
+        _verbatim_phrases = re.findall(r'\*([^*]+)\*', instruction)
+        # Strip the asterisk markers from the instruction text itself
+        _clean_instruction = re.sub(r'\*([^*]+)\*', r'\1', instruction)
+
+        if _verbatim_phrases:
+            verbatim_block = (
+                "VERBATIM INJECTION — MANDATORY:\n"
+                "The following phrase(s) must appear in your output WORD FOR WORD, "
+                "exactly as written below — no paraphrasing, no synonym replacement, "
+                "no reordering of the words. Place each one where it fits naturally "
+                "within the scene. Do not alter punctuation, capitalisation, or wording.\n"
+            )
+            for i, phrase in enumerate(_verbatim_phrases, 1):
+                verbatim_block += f"  {i}. \"{phrase.strip()}\"\n"
+            verbatim_block += (
+                "These are LoRA trigger phrases. Getting them wrong breaks the model. "
+                "Copy them verbatim.\n"
+            )
+            parts.append(verbatim_block)
+        else:
+            _clean_instruction = instruction
+
         parts.append(
             "SCENE TO WRITE A PROMPT FOR:\n"
-            + instruction
+            + _clean_instruction
             + word_instruction
             + "\n\nOutput the prompt now. One paragraph. No headers. No bullets. No preamble. "
             "The first word you write is the first word of the cinematic paragraph itself. Begin:"
