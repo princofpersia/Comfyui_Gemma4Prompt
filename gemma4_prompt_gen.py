@@ -1867,6 +1867,12 @@ whisper, mutter, shout, scream, resonant, gravelly, breathless, crisp, muffled, 
 QUALITY TERMS — weave these naturally into the paragraph where they fit the sentence, do not tack them on as a standalone closing list:
 cinematic, ultra-detailed, sharp focus, photorealistic, masterpiece, maintains realistic human anatomy and natural joint rotation throughout
 
+DIALOGUE FORMAT — STRICT:
+All spoken words use this format: she says: words here, or he says: words here.
+NEVER wrap spoken words in quotation marks. No "quotes" around dialogue. Ever.
+Wrong: she says "hey baby" — Right: she says: hey baby,
+Wrong: he responds, "well I only have 1$" — Right: he says: well I only have 1$,
+
 Output only the prompt. Nothing before it, nothing after it."""
 
 # ── LTX 2.3 — Screenplay mode ────────────────────────────────────────────
@@ -3244,7 +3250,7 @@ class Gemma4PromptGen:
                         "DIALOGUE MODE — UNLEASHED:\n"
                         "Spoken words are the primary event. Every paragraph contains dialogue.\n"
                         "RULES — LTX 2.3 prose format (no bracket markers, no em-dash separators):\n"
-                        "- Write dialogue woven into action prose: she says \"line\" in a low voice, "
+                        "- Write dialogue woven into action prose: she says: line, in a low voice, "
                         "pauses and glances sideways, then continues \"next line,\" voice dropping further.\n"
                         "- After each spoken line: one physical beat from the speaker or listener — a breath, "
                         "a hand movement, a weight shift — then the next line.\n"
@@ -3281,7 +3287,7 @@ class Gemma4PromptGen:
                         "DIALOGUE MODE — TALKING (HIGH DENSITY):\n"
                         "Spoken dialogue is the primary event — woven into the action prose.\n"
                         "RULES — LTX 2.3 format (no bracket markers, no em-dash separators):\n"
-                        "- Format: [physical action], she says \"actual words\" in [delivery], "
+                        "- Format: [physical action], she says: actual words, in [delivery], "
                         "[physical beat from listener or speaker], then she continues \"next line.\"\n"
                         "- Delivery embedded in sentence: \"in a breathless rush\", \"low and flat\", \"cracking on the last word\".\n"
                         "- Camera moves when words land — push in on a confession, hold on a face after a question.\n"
@@ -3292,7 +3298,7 @@ class Gemma4PromptGen:
                         "DIALOGUE — PRESENT THROUGHOUT:\n"
                         "Spoken words appear throughout the prompt, woven naturally into the action.\n"
                         "RULES — LTX 2.3 format:\n"
-                        "- Format: [action], she says \"actual line\" in [delivery], [physical beat], [camera response].\n"
+                        "- Format: [physical action], she says: actual words, in [delivery], [physical beat], [camera response].\n"
                         "- Write the actual words — never 'she speaks softly' without the words themselves.\n"
                         "- Each line has a delivery note embedded in prose: \"low\", \"breathless\", \"flat\", \"laughing.\n"
                         "- Camera reacts to speech.\n"
@@ -3329,7 +3335,7 @@ class Gemma4PromptGen:
                         "DIALOGUE MODE — TALKING:\n"
                         "Spoken dialogue is woven into the action prose — LTX 2.3 style, no bracket markers.\n"
                         "RULES:\n"
-                        "- Format: [physical action], she says \"actual words\" [delivery note], "
+                        "- Format: [physical action], she says: actual words, [delivery note], "
                         "[one physical beat], then continues \"next line.\"\n"
                         "- Delivery embedded naturally: \"in a low voice\", \"rushing the words\", \"barely above a whisper\".\n"
                         "- Write the actual spoken words — never 'she speaks' without the words.\n"
@@ -3340,7 +3346,7 @@ class Gemma4PromptGen:
                         "DIALOGUE: Include spoken words naturally in the action prose.\n"
                         "RULES:\n"
                         "- Weave at least 2 spoken lines into the action — words in double quotes.\n"
-                        "- Format: she says \"actual line\" in [delivery], [brief physical beat].\n"
+                        "- Format: she says: actual words, in [delivery], [brief physical beat].\n"
                         "- Never write 'she speaks softly' — write what she actually says.\n"
                     )
 
