@@ -10,5 +10,7 @@ MODE > "PREVIEW" - generates the prompt, keep pressing run on comfyui to roll pr
 issue with seed randomiser, add this 
 <img width="558" height="188" alt="image" src="https://github.com/user-attachments/assets/9de34ae0-761d-4744-8e2e-00c0ec0dea10" />
 
+## Added Gemma4 Batch Captioner custom node
+
 
 
