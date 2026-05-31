@@ -783,9 +783,9 @@ class Gemma4BatchCaptioner:
 # ── ComfyUI Registration ───────────────────────────────────────────────────────
 
 NODE_CLASS_MAPPINGS = {
-    "Gemma4BatchCaptioner": Gemma4BatchCaptioner,
+    "Comfy_Gemma4BatchCaptioner": Gemma4BatchCaptioner,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "Gemma4BatchCaptioner": "🖼️ Gemma4 Batch Captioner",
+    "Comfy_Gemma4BatchCaptioner": "🖼️ Gemma4 Batch Captioner Engine",
 }
