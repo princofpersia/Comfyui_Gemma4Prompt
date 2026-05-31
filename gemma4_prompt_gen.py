@@ -4096,9 +4096,9 @@ class Gemma4PromptGen:
 
 # ── ComfyUI Registration ──────────────────────────────────────────────────
 NODE_CLASS_MAPPINGS = {
-    "Gemma4PromptGen": Gemma4PromptGen,
+    "Comfy_Gemma4Prompt": Gemma4PromptGen,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "Gemma4PromptGen": "🤖 Gemma4 Prompt Engineer",
+    "Comfy_Gemma4Prompt": "🤖 Gemma4 Prompt Engine",
 }
