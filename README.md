@@ -11,6 +11,10 @@ issue with seed randomiser, add this
 <img width="558" height="188" alt="image" src="https://github.com/user-attachments/assets/9de34ae0-761d-4744-8e2e-00c0ec0dea10" />
 
 ## Added Gemma4 Batch Captioner custom node
+For Batch captioning multiple images using gemma4 (usefull for captioning Lora training dataset)
+
+<img width="696" height="761" alt="batch captioner" src="https://github.com/user-attachments/assets/8fe4beef-57e9-49a6-b3ff-0040415d60e7" />
+
 
 
 
