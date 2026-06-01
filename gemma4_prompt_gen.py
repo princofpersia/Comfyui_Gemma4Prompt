@@ -1552,6 +1552,7 @@ TARGET_MODELS = [
     "🖼 SDXL 1.0 — image, booru tag style",
     "🖼 Pony XL  — image, booru + score tags",
     "🖼 SD 1.5   — image, weighted classic",
+    "⚙️ Custom   — use my own system prompt",
 ]
 
 
@@ -2467,6 +2468,25 @@ class Gemma4PromptGen:
                     "tooltip": "Seed value. Used directly in Fixed mode, as starting point in Increment mode, ignored in Random mode.",
                 }),
                 # ── BACKEND CONFIG ─────────────────────────────────────────
+                "📝 word_target": ("INT", {
+                    "default": 0, "min": 0, "max": 2000, "step": 10,
+                    "tooltip": (
+                        "Target word count for the output prompt. "
+                        "0 = let the model decide (default). "
+                        "Set e.g. 100 to get a ~100 word prompt. "
+                        "The model is instructed to hit this count exactly. "
+                        "Only meaningful for video models and Flux — booru tag outputs ignore it."
+                    ),
+                }),
+                "⚙️ custom_system_prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "",
+                    "tooltip": (
+                        "Custom system prompt — only used when target_model is set to 'Custom'. "
+                        "Write any instructions you want the model to follow. "
+                        "The model will ignore all built-in style rules and follow only this prompt."
+                    ),
+                }),
                 "🖥️ llama_server_url": (
                     "STRING",
                     {
@@ -2517,11 +2537,12 @@ class Gemma4PromptGen:
         lora_preset       = _kw("🎞 lora_preset",     "lora_preset",       default="None")
         screenplay_mode   = _kw("📝 screenplay_mode", "screenplay_mode",   default=False)
         shotscript_mode   = _kw("🎬 shotscript_mode", "shotscript_mode",   default=False)
-        # removed: wildcards, caption_bridge, word_target, auto_retry
+        # removed: wildcards, caption_bridge, auto_retry
         wildcards         = False
         caption_bridge    = False
-        word_target       = 0
         auto_retry        = False
+        word_target       = _kw("📝 word_target",       "word_target",       default=0)
+        custom_system_prompt = _kw("⚙️ custom_system_prompt", "custom_system_prompt", default="")
         # optional inputs
         image             = _kw("image",                                    default=None)
         character         = _kw("👤 character",       "character",         default="")
@@ -2655,7 +2676,10 @@ class Gemma4PromptGen:
             _temperature_float = _temp_map.get(temperature, 1.0)
 
             # Build message — use LoRA system prompt override if active
-            system_prompt = _lora_sys_override if _lora_sys_override else get_system_prompt(target_model, screenplay_mode, shotscript_mode, animation_preset)
+            if "Custom" in target_model and custom_system_prompt.strip():
+                system_prompt = _lora_sys_override if _lora_sys_override else custom_system_prompt.strip()
+            else:
+                system_prompt = _lora_sys_override if _lora_sys_override else get_system_prompt(target_model, screenplay_mode, shotscript_mode, animation_preset)
             combined = self._build_message(
                 instruction, system_prompt, target_model, environment,
                 frame_count, dialogue, character, seed, image_paths,

@@ -15,6 +15,12 @@ For Batch captioning multiple images using gemma4 (usefull for captioning Lora t
 
 <img width="418" height="457" alt="batch captioner" src="https://github.com/user-attachments/assets/8fe4beef-57e9-49a6-b3ff-0040415d60e7" />
 
+### Added word count input
+User can input the word count to keep control over number of words of the generated prompts.
+
+### added custom system prompt preset + custom system prompt input
+when new preset of custom prompt selected, user can input the custom system prompt in the seperate input, keeping the user input prompt clutter free
+
 
 
 
